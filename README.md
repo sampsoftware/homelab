@@ -17,7 +17,7 @@ on a single Dell PowerEdge T620. This repo is the operator's runbook + network r
 |---|---|---|---|---|
 | ESXi host | `esxi-t620.lab.sampsoftware.net` | `192.168.20.10` / `.13` | vSphere 7.0.3 | root / in password manager |
 | vCenter | <https://vcenter.lab.sampsoftware.net> | `192.168.20.11` | manages the SDDC | `administrator@vsphere.local` / in password manager |
-| Tanzu Platform appliance | `*.tpcf.lab.sampsoftware.net` | `192.168.20.12` | **deploy pending** — see `tpa-homelab` + `certs.md` | retrieved from the appliance |
+| Tanzu Platform appliance | `*.tanzu.lab.sampsoftware.net` | `192.168.20.12` | **deploy pending** — see `tpa-homelab` + `certs.md` | retrieved from the appliance |
 
 ## Hardware
 

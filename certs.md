@@ -23,16 +23,16 @@ resolve to internal IPs via split-horizon DNS on the lab resolver. DNS-01 valida
 
 ## The appliance: re-domained under the public zone
 
-`config.json` was moved off `tanzu.lab` onto `tpcf.lab.sampsoftware.net`:
+`config.json` was moved off `tanzu.lab` onto `tanzu.lab.sampsoftware.net`:
 
 | field | value |
 |---|---|
-| `domain` | `tpcf.lab.sampsoftware.net` |
-| `sys_domain` | `sys.tpcf.lab.sampsoftware.net` |
-| `apps_domain` | `apps.tpcf.lab.sampsoftware.net` |
-| `tpcf_domain` | `tpcf.lab.sampsoftware.net` |
+| `domain` | `tanzu.lab.sampsoftware.net` |
+| `sys_domain` | `sys.tanzu.lab.sampsoftware.net` |
+| `apps_domain` | `apps.tanzu.lab.sampsoftware.net` |
+| `tpcf_domain` | `tanzu.lab.sampsoftware.net` |
 
-Endpoints become `hub.tpcf…`, `ops.tpcf…`, `api.sys.tpcf…`, apps on `*.apps.tpcf…`.
+Endpoints become `hub.tanzu…`, `ops.tanzu…`, `api.sys.tanzu…`, apps on `*.apps.tanzu…`.
 
 ### Cert (one dedicated appliance cert)
 
@@ -40,10 +40,10 @@ Issued by `issue-appliance-cert.sh` (run on the bastion). A wildcard matches exa
 label, so `sys.*` and `apps.*` each need their own SAN:
 
 ```
-tpcf.lab.sampsoftware.net
-*.tpcf.lab.sampsoftware.net          # hub, ops
-*.sys.tpcf.lab.sampsoftware.net      # api, login, uaa, apps manager
-*.apps.tpcf.lab.sampsoftware.net     # deployed apps
+tanzu.lab.sampsoftware.net
+*.tanzu.lab.sampsoftware.net          # hub, ops
+*.sys.tanzu.lab.sampsoftware.net      # api, login, uaa, apps manager
+*.apps.tanzu.lab.sampsoftware.net     # deployed apps
 ```
 
 Kept separate from the lab-infra cert (`*.lab.sampsoftware.net`) so a renewal/validation
@@ -55,7 +55,7 @@ On the lab resolver (UniFi / PiHole dnsmasq), one line covers the whole tree —
 `address=/domain/ip` matches the domain *and all* subdomains:
 
 ```
-address=/tpcf.lab.sampsoftware.net/192.168.20.12
+address=/tanzu.lab.sampsoftware.net/192.168.20.12
 ```
 
 This is only for workstations/clients. The appliance keeps its **own** internal dnsmasq
@@ -90,7 +90,7 @@ foundation, not worth chasing in a lab.
 
 Same mechanism, separate cert: Let's Encrypt + Cloudflare DNS-01 for `vcenter.lab…`,
 `esxi-t620.lab…`, `hub.lab…`, etc. The legacy `certbot.sh` bundled infra + TAS names into one
-oversized cert with inconsistent naming (`tpcf.sampsoftware.net` vs `tpcf.lab.sampsoftware.net`,
+oversized cert with inconsistent naming (mixing bare-domain and `.lab` names, plus retired 
 `tas.sampsoftware.net`); when you revisit it, split it to `*.lab.sampsoftware.net` (+ apex) and
 drop the appliance names (now covered by the dedicated cert above).
 
@@ -114,7 +114,7 @@ drop the appliance names (now covered by the dedicated cert above).
 # on the bastion, with ~/.secrets/cf.ini in place and ~/.ssh/id_opsman able to reach the appliance
 ./issue-appliance-cert.sh                 # issues + runs the deploy hook
 # confirm Traefik picked it up:
-curl -v https://hub.tpcf.lab.sampsoftware.net 2>&1 | grep -Ei 'issuer|subject|verify'
+curl -v https://hub.tanzu.lab.sampsoftware.net 2>&1 | grep -Ei 'issuer|subject|verify'
 ```
 
 Renewals are automatic (certbot timer → deploy hook). Add the dnsmasq line to the lab resolver

@@ -14,7 +14,7 @@ set -euo pipefail
 CF_INI="${CF_INI:-$HOME/.secrets/cf.ini}"
 
 # certbot lineage name — keeps this cert separate from the lab-infra cert.
-CERT_NAME="${CERT_NAME:-tpcf-appliance}"
+CERT_NAME="${CERT_NAME:-tanzu-appliance}"
 
 # Deploy hook: push the (re)issued cert into the appliance and reload Traefik.
 # certbot runs this on issue and on every renewal. Set DEPLOY_HOOK= to skip.
@@ -28,10 +28,10 @@ sudo certbot certonly \
     --cert-name "$CERT_NAME" \
     --key-type rsa \
     ${DEPLOY_HOOK:+--deploy-hook "$DEPLOY_HOOK"} \
-    -d "tpcf.lab.sampsoftware.net" \
-    -d "*.tpcf.lab.sampsoftware.net" \
-    -d "*.sys.tpcf.lab.sampsoftware.net" \
-    -d "*.apps.tpcf.lab.sampsoftware.net"
+    -d "tanzu.lab.sampsoftware.net" \
+    -d "*.tanzu.lab.sampsoftware.net" \
+    -d "*.sys.tanzu.lab.sampsoftware.net" \
+    -d "*.apps.tanzu.lab.sampsoftware.net"
 
 echo
 echo "Issued. Live cert: /etc/letsencrypt/live/$CERT_NAME/"

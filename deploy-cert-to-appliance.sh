@@ -4,7 +4,7 @@
 # Usable two ways:
 #   - As a certbot --deploy-hook: certbot exports $RENEWED_LINEAGE (the live cert dir).
 #   - Manually: pass the live dir as $1, e.g.
-#       ./deploy-cert-to-appliance.sh /etc/letsencrypt/live/tpcf-appliance
+#       ./deploy-cert-to-appliance.sh /etc/letsencrypt/live/tanzu-appliance
 #
 # Traefik (the appliance's single ingress) mounts /opt/traefik/certs -> /certs:ro
 # (traefik.service). We drop fullchain.pem + privkey.pem there under the names Traefik's
@@ -15,7 +15,7 @@
 # and set CERT_CRT / CERT_KEY below to match. Defaults are the common appliance names.
 set -euo pipefail
 
-LINEAGE="${1:-${RENEWED_LINEAGE:-/etc/letsencrypt/live/tpcf-appliance}}"
+LINEAGE="${1:-${RENEWED_LINEAGE:-/etc/letsencrypt/live/tanzu-appliance}}"
 
 # Appliance access. After the re-domain the host is the appliance IP (DNS may not be live yet
 # during first issuance), with the opsman key. vcap has passwordless sudo on the appliance.
@@ -34,7 +34,7 @@ SCP=(scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new)
 echo "Deploying $LINEAGE -> ${APPLIANCE_USER}@${APPLIANCE_HOST}:${CERT_DIR}/{$CERT_CRT,$CERT_KEY}"
 
 # Stage to a temp dir on the appliance, then move into place with sudo.
-TMP="/tmp/tpcf-cert.$$"
+TMP="/tmp/tanzu-cert.$$"
 "${SSH[@]}" "mkdir -p $TMP"
 "${SCP[@]}" "$LINEAGE/fullchain.pem" "${APPLIANCE_USER}@${APPLIANCE_HOST}:$TMP/$CERT_CRT"
 "${SCP[@]}" "$LINEAGE/privkey.pem"   "${APPLIANCE_USER}@${APPLIANCE_HOST}:$TMP/$CERT_KEY"
