@@ -64,8 +64,9 @@ network; that addressing is **retired** and survives only in `docs/legacy-tas/`.
   `192.168.20.1`. Uplink is Xfinity cable (~1.2 Gbit) → UDM Pro.
 - **Core endpoints:** ESXi host `esxi-t620.lab.sampsoftware.net` (`192.168.20.10` / `.13`,
   vSphere 7.0.3), vCenter `vcenter.lab.sampsoftware.net` (`192.168.20.11`,
-  `administrator@vsphere.local`), Tanzu Platform appliance (`192.168.20.12`, deploy pending).
-  Only those two VMs exist on the host today.
+  `administrator@vsphere.local`), the cert/ingress gateway VM `gw-vcf` (`192.168.20.5`,
+  Ubuntu/Docker — see `gateway/`), and the Tanzu Platform appliance (`192.168.20.12`, deploy
+  pending; a stale appliance VM is still on the host, powered off, awaiting replacement).
 - **DNS:** the UDM Pro at `192.168.20.1` is the lab resolver (PiHole is retired). For the
   appliance, add wildcard `*.tanzu.vcf.sampsoftware.net → 192.168.20.12` on the UDM (LAN-only
   split-horizon — see `certs.md`).

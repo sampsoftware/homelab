@@ -12,14 +12,16 @@ see `docs/legacy-tas/` for the historical map.
 | IP | DNS | Assignment |
 |---|---|---|
 | `192.168.20.1` | — | UDM Pro — gateway **and** lab DNS resolver |
+| `192.168.20.5` | `gw.vcf.sampsoftware.net` | Traefik/ACME cert+ingress gateway VM (Ubuntu 24.04, Docker) — see `gateway/` |
 | `192.168.20.10` | `esxi-t620.lab.sampsoftware.net` (vmk0) | ESXi host — management vmkernel |
 | `192.168.20.11` | `vcenter.lab.sampsoftware.net` | vCenter Server appliance (VCSA 7.0.3) |
 | `192.168.20.12` | `*.tanzu.vcf.sampsoftware.net` | Tanzu Platform appliance (**deploy pending**) |
 | `192.168.20.13` | `esxi-t620.lab.sampsoftware.net` (vmk1) | ESXi host — second vmkernel (DNS resolves the name here) |
 
-There are currently **only two VMs** on the host: the vCenter appliance and the Tanzu Platform
-appliance. Everything else the lab once ran (bastion, PiHole, GPU server, MicroCeph, the TAS
-foundation) is retired.
+VMs on the host today: the **vCenter** appliance (`.11`), the new **`gw-vcf`** gateway VM (`.5`),
+and the **stale Tanzu appliance** VM (powered off, to be replaced by a fresh deploy on `.12`).
+Everything else the lab once ran (bastion, PiHole, GPU server, MicroCeph, the TAS foundation) is
+retired.
 
 ## DNS
 
