@@ -1,121 +1,107 @@
 # Certificate plan
 
-How TLS certs work across the lab. Two namespaces, two realities:
+Trusted TLS across the VMware lab, with **automatic renewal** and **nothing co-located with the
+personal `sampstack` project**. Naming follows [`naming.md`](naming.md) (the `vcf` substrate).
 
-1. **Public-rooted names** (`*.sampsoftware.net` and children) — we own `sampsoftware.net`
-   and it's on Cloudflare DNS, so a public CA can issue. **Let's Encrypt issues, Cloudflare
-   validates** (DNS-01). This is the only path that yields browser-trusted certs.
-2. **`tanzu.lab`** (the appliance's original private domain) — `.lab` is not a real TLD, so
-   **no public CA can ever issue** for it. We avoid this entirely by re-domaining the appliance
-   under the public zone (below).
+## Principle: terminate trusted TLS at a gateway, don't fight each host's cert store
 
-> **Cloudflare vs Let's Encrypt isn't a fork — they're different layers.** Let's Encrypt is the
-> CA; Cloudflare is the DNS operator answering the ACME DNS-01 challenge (`--dns-cloudflare`).
-> Every public cert here uses *both*. Cloudflare's own Origin CA / Tunnel only matters for
-> proxying traffic through Cloudflare's edge, which this LAN-only lab does not do.
+A dedicated **gateway VM — `gw.vcf.sampsoftware.net`** — on the T620 runs **Traefik + ACME**
+(Let's Encrypt via Cloudflare DNS-01) and is the single home for the Cloudflare token and the
+auto-renewing certs. Config + runbook live in [`gateway/`](gateway/). Two consumers:
 
-## Scope: LAN-only
+1. **Infra hosts (vCenter, ESXi)** — the gateway **reverse-proxies** them, presenting a trusted,
+   auto-renewing cert; the hosts keep their own self-signed certs (which nobody sees).
+2. **The Tanzu appliance (`tanzu.vcf`)** — it runs **its own Traefik**, so it isn't proxied;
+   instead the gateway *issues* its wildcard and *pushes* it into the appliance.
 
-Everything is reachable only from inside VLAN 20 / the home network. We still use a public CA
-(so certs are trusted with zero client config), but we publish **no public A records** — names
-resolve to internal IPs via split-horizon DNS on the lab resolver. DNS-01 validation only needs
-`_acme-challenge` TXT records, which the certbot Cloudflare plugin creates and removes itself.
+> **LE vs Cloudflare aren't a fork — they're layers.** Let's Encrypt is the CA; Cloudflare is the
+> DNS operator answering the ACME DNS-01 challenge. Everything here uses both. DNS-01 needs only
+> outbound API access + `_acme-challenge` TXT records, so it works **LAN-only** with no public A
+> records and even while the host is powered off between renewals.
 
-## The appliance: re-domained under the public zone
+## Why a gateway instead of LE directly on vCenter/ESXi
 
-`config.json` was moved off `tanzu.lab` onto `tanzu.lab.sampsoftware.net`:
+Putting a 90-day LE cert directly on the vCenter Machine SSL store or ESXi means re-running
+`certificate-manager` / re-pushing files **every ~60–90 days**, and vCenter restarts all services
+on each replacement. The gateway makes renewal Traefik's problem (zero host downtime) and keeps
+the blast radius off the hosts. The tradeoff: the proxy covers the **web UIs + SDK over 443**
+(trusted for browsers and `govc`); **VM consoles (WebMKS) and OVF/datastore transfers use port
+902 / direct-to-host and still see the host's self-signed cert** — expected, and fine for
+day-to-day admin.
 
-| field | value |
+## Wildcard rule (why there are several SANs)
+
+A wildcard matches **exactly one label**, so each depth level needs its own SAN. The gateway's
+Traefik requests, via the `cloudflare` resolver:
+
+| Wildcard | Covers |
 |---|---|
-| `domain` | `tanzu.lab.sampsoftware.net` |
-| `sys_domain` | `sys.tanzu.lab.sampsoftware.net` |
-| `apps_domain` | `apps.tanzu.lab.sampsoftware.net` |
-| `tpcf_domain` | `tanzu.lab.sampsoftware.net` |
+| `*.vcf.sampsoftware.net` (+ apex) | `vcenter.vcf`, `esxi-t620.vcf`, `gw.vcf`, bare tenant roots |
+| `*.tanzu.vcf.sampsoftware.net` | appliance `hub`, `ops` |
+| `*.sys.tanzu.vcf.sampsoftware.net` | appliance `api`, `login`, `uaa`, Apps Manager |
+| `*.apps.tanzu.vcf.sampsoftware.net` | pushed CF apps |
 
-Endpoints become `hub.tanzu…`, `ops.tanzu…`, `api.sys.tanzu…`, apps on `*.apps.tanzu…`.
+Infra hosts ride `*.vcf`; the appliance needs the three `*.tanzu.vcf` levels.
 
-### Cert (one dedicated appliance cert)
+## Infra hosts — reverse-proxied (see `gateway/`)
 
-Issued by `issue-appliance-cert.sh` (run on the bastion). A wildcard matches exactly one
-label, so `sys.*` and `apps.*` each need their own SAN:
+`gateway/` holds the Traefik scaffold (modeled on sampstack's proven setup):
+`vcenter.vcf.sampsoftware.net` → `https://192.168.20.11`, `esxi-t620.vcf.sampsoftware.net` →
+`https://192.168.20.13`, behind a `local-network-only` allowlist, backends via an
+`insecureSkipVerify` transport (the trusted leg is client→Traefik). DNS for those `vcf` names
+points at the **gateway** (split-horizon on the UDM), which is what routes traffic through it.
+Renewal is automatic. Full build runbook: [`gateway/README.md`](gateway/README.md).
 
-```
-tanzu.lab.sampsoftware.net
-*.tanzu.lab.sampsoftware.net          # hub, ops
-*.sys.tanzu.lab.sampsoftware.net      # api, login, uaa, apps manager
-*.apps.tanzu.lab.sampsoftware.net     # deployed apps
-```
-
-Kept separate from the lab-infra cert (`*.lab.sampsoftware.net`) so a renewal/validation
-hiccup on one doesn't take down the other, and only the appliance cert ever leaves the bastion.
-
-### LAN DNS (split-horizon)
-
-On the lab resolver (UniFi / PiHole dnsmasq), one line covers the whole tree — dnsmasq's
-`address=/domain/ip` matches the domain *and all* subdomains:
-
-```
-address=/tanzu.lab.sampsoftware.net/192.168.20.12
-```
-
-This is only for workstations/clients. The appliance keeps its **own** internal dnsmasq
-(`wildcard-dns.service`) for container-to-container resolution; don't conflate the two.
-
-### Injecting the cert into the appliance
+## The appliance — its own Traefik, cert pushed in
 
 The appliance has **no OVF property for a custom cert** — `ovf-firstboot.sh` self-generates a
-Traefik cert from the domain SANs. Traefik (the single ingress) mounts
-`/opt/traefik/certs → /certs:ro`, so that directory is the injection point.
+Traefik cert from the domain SANs, and Traefik mounts `/opt/traefik/certs → /certs:ro`. So:
 
-`deploy-cert-to-appliance.sh` copies `fullchain.pem`/`privkey.pem` into `/opt/traefik/certs/`
-and restarts Traefik. It runs as a certbot `--deploy-hook`, so **renewals auto-push** — and
-certbot's own systemd timer drives the 90-day renewal. Run once manually for the first issue.
+- **`issue-appliance-cert.sh`** (run on the gateway VM) issues the LE wildcard for
+  `tanzu.vcf.sampsoftware.net` + `*.tanzu.vcf` + `*.sys.tanzu.vcf` + `*.apps.tanzu.vcf` via
+  Cloudflare DNS-01.
+- **`deploy-cert-to-appliance.sh`** runs as the certbot `--deploy-hook`: it copies
+  `fullchain.pem`/`privkey.pem` into the appliance's `/opt/traefik/certs/` and restarts Traefik,
+  so **renewals auto-push**. Confirm the target filenames once on the running appliance
+  (`grep -rEi 'certFile|keyFile' /opt/traefik/config`) and set `CERT_CRT`/`CERT_KEY`.
 
-**Confirm the target filenames once** on the running appliance and set `CERT_CRT`/`CERT_KEY`
-in the deploy script to match:
+(The appliance is deliberately *not* behind the gateway — double-proxying its own Traefik buys
+nothing, and its config is regenerated by the firstboot/discovery scripts.)
 
-```bash
-grep -rEi 'certFile|keyFile|certificates' /opt/traefik/config
-```
-
-### What stays self-signed (and that's fine)
-
-The appliance is built assuming self-signed — `configure-cf-apps-manager.sh` sets
-`SKIP_SSL_VALIDATION=true` for Apps Manager. Replacing Traefik's **edge** cert gives trusted
-browser access to Hub/Ops/Apps Manager and trusted `cf login` (no `--skip-ssl-validation`).
-The platform's **internal** BOSH/GoRouter certs keep their own self-signed CA — normal for a
-foundation, not worth chasing in a lab.
-
-## Lab-infra names (`*.lab.sampsoftware.net`)
-
-Same mechanism, separate cert: Let's Encrypt + Cloudflare DNS-01 for `vcenter.lab…`,
-`esxi-t620.lab…`, `hub.lab…`, etc. The legacy `certbot.sh` bundled infra + TAS names into one
-oversized cert with inconsistent naming (mixing bare-domain and `.lab` names, plus retired 
-`tas.sampsoftware.net`); when you revisit it, split it to `*.lab.sampsoftware.net` (+ apex) and
-drop the appliance names (now covered by the dedicated cert above).
+What stays self-signed, by design: the appliance's **internal** BOSH/GoRouter certs keep their
+own CA (normal for a foundation), and `configure-cf-apps-manager.sh` sets
+`SKIP_SSL_VALIDATION=true` for Apps Manager. Replacing the **edge** cert gives trusted browser
+access + `cf login` without `--skip-ssl-validation`.
 
 ## ⚠️ Cloudflare token
 
-`secrets/cf.ini` is committed to git history (see `CLAUDE.md`). **Rotate it:**
+One token covers everything (`naming.md`): **Zone → DNS → Edit on `sampsoftware.net` only**.
+`secrets/cf.ini` is committed to git history (see `CLAUDE.md`) — **rotate it**:
 
-1. Cloudflare dashboard → create an API token scoped to **Zone → DNS → Edit**, on
-   **`sampsoftware.net` only** (not the global key).
-2. Store it **outside the repo** — `~/.secrets/cf.ini` on the bastion (the default
-   `CF_INI` in `issue-appliance-cert.sh`), mode `0600`, format:
-   ```
-   dns_cloudflare_api_token = <token>
-   ```
-3. Remove the tracked `secrets/cf.ini`; the old token is in history, so rotation (step 1) is
-   what actually neutralizes it.
+1. Cloudflare dashboard → new API token, scoped Zone:DNS:Edit on `sampsoftware.net`.
+2. Store it **outside the repo** — on the gateway VM as `CF_DNS_API_TOKEN` in `gateway/.env`
+   (mode 600, gitignored), and for the appliance-cert script as `~/.secrets/cf.ini` (the default
+   `CF_INI`).
+3. Delete the tracked `secrets/cf.ini`; the old token is in history, so rotation is what
+   neutralizes it.
 
-## Runbook (first issue)
+## Runbook
 
 ```bash
-# on the bastion, with ~/.secrets/cf.ini in place and ~/.ssh/id_opsman able to reach the appliance
-./issue-appliance-cert.sh                 # issues + runs the deploy hook
-# confirm Traefik picked it up:
-curl -v https://hub.tanzu.lab.sampsoftware.net 2>&1 | grep -Ei 'issuer|subject|verify'
+# 1) Gateway VM (one-time): build gw.vcf, set gateway/.env CF_DNS_API_TOKEN, docker compose up -d
+#    -> trusted vCenter/ESXi UIs at https://vcenter.vcf.sampsoftware.net etc. See gateway/README.md
+
+# 2) Appliance cert (after the appliance is deployed), on the gateway VM:
+./issue-appliance-cert.sh                 # issues + runs the deploy hook into the appliance
+curl -v https://hub.tanzu.vcf.sampsoftware.net 2>&1 | grep -Ei 'issuer|subject'
 ```
 
-Renewals are automatic (certbot timer → deploy hook). Add the dnsmasq line to the lab resolver
-once; it doesn't change on renewal.
+Add the UDM DNS records once (gateway front-doors for infra; `*.tanzu.vcf → 192.168.20.12` for
+the appliance); renewals are automatic thereafter (Traefik for infra, certbot timer + deploy
+hook for the appliance).
+
+## Note: the legacy `certbot.sh`
+
+`certbot.sh` is the **old** monolithic one-shot cert (infra + TAS names in one oversized cert).
+Superseded by this scheme — the gateway handles infra, `issue-appliance-cert.sh` handles the
+appliance. Kept only for reference.

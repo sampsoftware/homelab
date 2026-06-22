@@ -35,12 +35,14 @@ configured from the sibling **`tpa-homelab`** repo.
 | `README.md` | Top-level index: live services, hardware links, pointers |
 | `poweredge.md` | The T620 host — full bill of materials, CPU/RAM/disk detail |
 | `lab-ip-space.md` | **The IP/network source of truth** — VLAN 20 assignment table, DNS, upstream |
+| `naming.md` | **The DNS naming scheme** — the `<workload>.<substrate>.sampsoftware.net` taxonomy; why VMware lives under `vcf.`, personal under `lab.` |
 | `virtualization.md` | Installing & configuring ESXi and vCenter; recovering VCSA passwords headless |
 | `unifi.md` | Ubiquiti UDM Pro / UniFi Identity Enterprise console + credentials pointers |
-| `certs.md` | **The certificate plan** — LE + Cloudflare DNS-01, the two domain namespaces, LAN-only split-horizon DNS, and how the appliance cert is issued/injected |
-| `certbot.sh` | Legacy one-shot wildcard cert (LE + Cloudflare DNS-01). Superseded by `certs.md`'s split-cert scheme; see notes there |
-| `issue-appliance-cert.sh` | Issue the LE wildcard for the re-domained Tanzu appliance (`*.tanzu.lab.sampsoftware.net` + sys/apps), with a deploy hook |
+| `certs.md` | **The certificate plan** — trusted TLS via a gateway VM (Traefik + ACME), auto-renewing; how infra hosts are proxied and the appliance cert is pushed |
+| `gateway/` | **The cert/ingress gateway VM** — Traefik + ACME scaffold (compose, config, runbook) that reverse-proxies vCenter/ESXi under `*.vcf` with auto-renewing LE certs |
+| `issue-appliance-cert.sh` | Issue the LE wildcard for the Tanzu appliance (`*.tanzu.vcf.sampsoftware.net` + sys/apps), with a deploy hook |
 | `deploy-cert-to-appliance.sh` | certbot deploy-hook: push the cert into the appliance's Traefik (`/opt/traefik/certs`) and reload |
+| `certbot.sh` | Legacy one-shot wildcard cert (LE + Cloudflare DNS-01). Superseded by the gateway scheme in `certs.md`; kept for reference |
 | `vcsa-shell-access.md` | Reference: why VCSA's appliancesh blocks scripted SSH, and the gotchas (faillock, ANSI prompts, PAM pwhistory). The *capability* lives in the `vcsa-drive` skill |
 | `.claude/skills/vcsa-drive/` | **Skill** — drive interactive VCSA admin tools headlessly (reset a lost SSO password, change appliance root). `SKILL.md` + the `vcsa_drive.py` pty helper. See `.claude/README.md` |
 
@@ -65,10 +67,14 @@ network; that addressing is **retired** and survives only in `docs/legacy-tas/`.
   `administrator@vsphere.local`), Tanzu Platform appliance (`192.168.20.12`, deploy pending).
   Only those two VMs exist on the host today.
 - **DNS:** the UDM Pro at `192.168.20.1` is the lab resolver (PiHole is retired). For the
-  appliance, add wildcard `*.tanzu.lab.sampsoftware.net → 192.168.20.12` on the UDM (LAN-only
+  appliance, add wildcard `*.tanzu.vcf.sampsoftware.net → 192.168.20.12` on the UDM (LAN-only
   split-horizon — see `certs.md`).
-- **Domains:** lab infra lives under `*.lab.sampsoftware.net`; the appliance under
-  `*.tanzu.lab.sampsoftware.net` (sys `*.sys.tanzu…`, apps `*.apps.tanzu…`). Public certs come
+- **Naming:** VMware lab lives under **`vcf.sampsoftware.net`** (`<workload>.<substrate>` —
+  `vcenter.vcf`, `esxi-t620.vcf`, `tanzu.vcf`); **personal** `sampstack` keeps `*.lab.sampsoftware.net`.
+  See `naming.md`. Infra hosts still answer on their old `*.lab` names today; the `vcf` names are
+  gateway front-doors (`gateway/`).
+- **Domains:** the appliance is under
+  `*.tanzu.vcf.sampsoftware.net` (sys `*.sys.tanzu.vcf…`, apps `*.apps.tanzu.vcf…`). Public certs come
   from Let's Encrypt via Cloudflare DNS-01 — see `certs.md`.
 
 ## Terminology note (relevant to current work)

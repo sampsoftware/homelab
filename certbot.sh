@@ -7,7 +7,7 @@ sudo certbot certonly \
     -d "sampsoftware.net" \
     -d "*.sampsoftware.net" \
     -d "*.lab.sampsoftware.net" \
-    -d "*.tanzu.lab.sampsoftware.net" \
+    -d "*.tanzu.vcf.sampsoftware.net" \
     -d "apps.tas.sampsoftware.net" \
     -d "*.apps.tpcf.sampsoftware.net" \
     -d "system.tpcf.sampsoftware.net" \

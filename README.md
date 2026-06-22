@@ -17,7 +17,7 @@ on a single Dell PowerEdge T620. This repo is the operator's runbook + network r
 |---|---|---|---|---|
 | ESXi host | `esxi-t620.lab.sampsoftware.net` | `192.168.20.10` / `.13` | vSphere 7.0.3 | root / in password manager |
 | vCenter | <https://vcenter.lab.sampsoftware.net> | `192.168.20.11` | manages the SDDC | `administrator@vsphere.local` / in password manager |
-| Tanzu Platform appliance | `*.tanzu.lab.sampsoftware.net` | `192.168.20.12` | **deploy pending** — see `tpa-homelab` + `certs.md` | retrieved from the appliance |
+| Tanzu Platform appliance | `*.tanzu.vcf.sampsoftware.net` | `192.168.20.12` | **deploy pending** — see `tpa-homelab` + `certs.md` | retrieved from the appliance |
 
 ## Hardware
 
@@ -36,11 +36,14 @@ A Ubiquiti **UDM Pro** provides routing, VLANs, and **lab DNS** (the resolver at
 
 ## Networking & virtualization
 
+- [Naming scheme](naming.md) — the `<workload>.<substrate>.sampsoftware.net` taxonomy; VMware
+  under `vcf.`, personal under `lab.`.
 - [IP space](lab-ip-space.md) — the current network/IP source of truth (VLAN 20).
 - [Virtualization & services](virtualization.md) — installing/configuring ESXi and vCenter;
   recovering VCSA passwords headless.
-- [Certificate plan](certs.md) — Let's Encrypt + Cloudflare DNS-01, LAN-only split-horizon DNS,
-  and how the appliance cert is issued/injected.
+- [Certificate plan](certs.md) — trusted TLS via a gateway VM (Traefik + ACME, auto-renewing):
+  infra hosts proxied under `*.vcf`, the appliance cert pushed to its own Traefik.
+- [Gateway](gateway/README.md) — the Traefik/ACME gateway VM that fronts vCenter/ESXi.
 
 ## Archived
 

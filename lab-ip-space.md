@@ -14,7 +14,7 @@ see `docs/legacy-tas/` for the historical map.
 | `192.168.20.1` | — | UDM Pro — gateway **and** lab DNS resolver |
 | `192.168.20.10` | `esxi-t620.lab.sampsoftware.net` (vmk0) | ESXi host — management vmkernel |
 | `192.168.20.11` | `vcenter.lab.sampsoftware.net` | vCenter Server appliance (VCSA 7.0.3) |
-| `192.168.20.12` | `*.tanzu.lab.sampsoftware.net` | Tanzu Platform appliance (**deploy pending**) |
+| `192.168.20.12` | `*.tanzu.vcf.sampsoftware.net` | Tanzu Platform appliance (**deploy pending**) |
 | `192.168.20.13` | `esxi-t620.lab.sampsoftware.net` (vmk1) | ESXi host — second vmkernel (DNS resolves the name here) |
 
 There are currently **only two VMs** on the host: the vCenter appliance and the Tanzu Platform
@@ -25,7 +25,7 @@ foundation) is retired.
 
 - The **UDM Pro at `192.168.20.1`** is the lab resolver (PiHole, the former DNS, is retired).
 - `esxi-t620` and `vcenter` `.lab.sampsoftware.net` resolve to their VLAN-20 addresses above.
-- For the appliance, add wildcard DNS `*.tanzu.lab.sampsoftware.net → 192.168.20.12` on the UDM
+- For the appliance, add wildcard DNS `*.tanzu.vcf.sampsoftware.net → 192.168.20.12` on the UDM
   for LAN clients (split-horizon — public names, internal IP). See `certs.md`.
 - Stale public records may still linger for retired names (e.g. `bastion.lab.sampsoftware.net`
   → an old `172.16.x` address); ignore them.

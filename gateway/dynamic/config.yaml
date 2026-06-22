@@ -1,0 +1,63 @@
+http:
+  middlewares:
+    local-network-only:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+          - "::1/128"
+          - "fc00::/7"
+
+  serversTransports:
+    insecure-backend:
+      # vCenter/ESXi present self-signed certs on their management UIs.
+      # We terminate trusted TLS at Traefik and skip verification upstream.
+      insecureSkipVerify: true
+
+  routers:
+    vcenter:
+      rule: "Host(`vcenter.vcf.sampsoftware.net`)"
+      entryPoints:
+        - websecure
+      service: vcenter
+      # No security-headers/CSP here: the vCenter H5 UI breaks under a
+      # tight CSP. local-network-only is the only middleware applied.
+      middlewares:
+        - local-network-only
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: "vcf.sampsoftware.net"
+            sans:
+              - "*.vcf.sampsoftware.net"
+
+    esxi:
+      rule: "Host(`esxi-t620.vcf.sampsoftware.net`)"
+      entryPoints:
+        - websecure
+      service: esxi
+      # No security-headers/CSP here: the ESXi H5 UI breaks under a
+      # tight CSP. local-network-only is the only middleware applied.
+      middlewares:
+        - local-network-only
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: "vcf.sampsoftware.net"
+            sans:
+              - "*.vcf.sampsoftware.net"
+
+  services:
+    vcenter:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.20.11"
+        serversTransport: insecure-backend
+
+    esxi:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.20.13"
+        serversTransport: insecure-backend

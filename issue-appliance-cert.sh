@@ -28,10 +28,10 @@ sudo certbot certonly \
     --cert-name "$CERT_NAME" \
     --key-type rsa \
     ${DEPLOY_HOOK:+--deploy-hook "$DEPLOY_HOOK"} \
-    -d "tanzu.lab.sampsoftware.net" \
-    -d "*.tanzu.lab.sampsoftware.net" \
-    -d "*.sys.tanzu.lab.sampsoftware.net" \
-    -d "*.apps.tanzu.lab.sampsoftware.net"
+    -d "tanzu.vcf.sampsoftware.net" \
+    -d "*.tanzu.vcf.sampsoftware.net" \
+    -d "*.sys.tanzu.vcf.sampsoftware.net" \
+    -d "*.apps.tanzu.vcf.sampsoftware.net"
 
 echo
 echo "Issued. Live cert: /etc/letsencrypt/live/$CERT_NAME/"

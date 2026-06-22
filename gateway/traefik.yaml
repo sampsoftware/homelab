@@ -1,0 +1,35 @@
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+api:
+  # Dashboard is enabled but reachable *only* through a routed entrypoint.
+  # NOT insecure: the API/dashboard is never exposed on an unauthenticated
+  # host port. If dashboard access is needed, add a router for it under
+  # dynamic/config.yaml with the local-network-only middleware and BasicAuth.
+  dashboard: true
+
+ping: {}
+
+providers:
+  file:
+    directory: "/dynamic"
+    watch: true
+
+certificatesResolvers:
+  cloudflare:
+    acme:
+      email: chrisgsamp@gmail.com
+      storage: /acme/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
