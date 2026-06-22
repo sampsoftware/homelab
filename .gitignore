@@ -1,2 +1,3 @@
 secret/*
-!secret/config_example.txt
+!secret/config_example.txt__pycache__/
+*.pyc

@@ -43,3 +43,10 @@ https://docs.pi-hole.net/main/basic-install/
 
 Using the ESXi Host Manager tool, attach the vSphere ISO to your Ubuntu bastion vm
 
+### Recovering / changing VCSA passwords headless
+
+Lost the SSO `administrator@vsphere.local` password, or need to change the appliance `root`
+password without the console? The `vcsa-drive` skill (`.claude/skills/vcsa-drive/`) scripts
+appliancesh and the interactive admin tools over SSH. Background and gotchas:
+`vcsa-shell-access.md`.
+
