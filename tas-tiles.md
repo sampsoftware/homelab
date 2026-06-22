@@ -1,4 +1,0 @@
-# Install TAS Tiles
-
-## MySQL
-

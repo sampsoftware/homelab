@@ -1,54 +1,48 @@
 # Samp Lab
 
-This homelab is used to play with virtualization and container automation.
+A physical homelab for VMware virtualization and Cloud Foundry / Tanzu container automation,
+on a single Dell PowerEdge T620. This repo is the operator's runbook + network reference.
 
+> **Network moved to VLAN 20 / `192.168.20.0/24`.** The old `172.16.0.0/16` ("the_lab")
+> addressing is retired. See `lab-ip-space.md` for the current map.
+>
+> **The TAS 4 foundation is retired.** The host was rebuilt (June 2026) and now runs only
+> vCenter and the Tanzu Platform appliance. The old TAS/BOSH stack and its supporting VMs
+> (bastion, PiHole, GPU server, MicroCeph) are gone — their docs are archived under
+> `docs/legacy-tas/`. The current Cloud Foundry platform lives in the **`tpa-homelab`** repo.
 
+## Live services
 
-| Service | URL | Description | Credentials |
-|-|-|-|-|
-|vCenter|<https://vcenter.lab.sampsoftware.net> | VMware vCenter to manage the SDDC | administrator@vsphere.local / Long|
-| Bastion | bastion.lab.sampsoftware.net | Ubuntu host on Lab network |
-| Operations Manager | <https://opsman.tas.lab.sampsoftware.net> | Tanzu Operations Manager to manage Cloud Foundry - note login fails but then can refresh| admin / in password manager |
-| TAS Apps Manager | <https://apps.system.tas.lab.sampsoftware.net> | Applications Manager | admin / |
-| TAS Apps Domain | *.apps.tas.lab.sampsoftware.net | Application hosting wildcard domain |
-| TAS System Domain | *.system.tas.lab.sampsoftware.net | System components
+| Service | URL / name | IP | Notes | Credentials |
+|---|---|---|---|---|
+| ESXi host | `esxi-t620.lab.sampsoftware.net` | `192.168.20.10` / `.13` | vSphere 7.0.3 | root / in password manager |
+| vCenter | <https://vcenter.lab.sampsoftware.net> | `192.168.20.11` | manages the SDDC | `administrator@vsphere.local` / in password manager |
+| Tanzu Platform appliance | `*.tpcf.lab.sampsoftware.net` | `192.168.20.12` | **deploy pending** — see `tpa-homelab` + `certs.md` | retrieved from the appliance |
 
+## Hardware
 
+### [PowerEdge T620](poweredge.md)
 
+Dell PowerEdge T620 (≈2013, bought refurbished 2018). Dual Xeon E5-2640 (Sandy Bridge, 2×6
+cores), **256 GB DDR3** (16×16 GB PC3-12800R), PERC RAID + mixed HDD/SSD and 2× NVMe on PCIe.
+The CPU is several generations below VMware's supported floor, so ESXi installs after accepting
+a compatibility warning. A Windows VM has never installed successfully (suspected CPU). NSX is
+not installed (suspected CPU incompatibility), so there is no SDN overlay.
 
+### [UniFi](unifi.md)
 
-# Hardware
+A Ubiquiti **UDM Pro** provides routing, VLANs, and **lab DNS** (the resolver at
+`192.168.20.1`). PiHole — the previous lab DNS — is retired.
 
-## [Poweredge](poweredge.md)
+## Networking & virtualization
 
-The Lab is based on a Dell PowerEdge T620, current in approximately 2013. It has an older processor ("Xeon Sandy Bridge E5-2640") that is no longer officially supported, but still largely works. It has 256mb DDR2 RAM and 10TB of drive space, some HDD and some SDD, mostly limited by the SATA interface speed. It also has a Ubiquity USG and 8-port router. **Update** Tanzu Application Service runs fine, deploying Spring applications. I cannot install a Windows VM -- I suspect due to the processor but not completely certain.
+- [IP space](lab-ip-space.md) — the current network/IP source of truth (VLAN 20).
+- [Virtualization & services](virtualization.md) — installing/configuring ESXi and vCenter;
+  recovering VCSA passwords headless.
+- [Certificate plan](certs.md) — Let's Encrypt + Cloudflare DNS-01, LAN-only split-horizon DNS,
+  and how the appliance cert is issued/injected.
 
-## [Unifi](unifi.md)
+## Archived
 
-A Unifi router provides the software defined networking. UDM Pro.
-
-## [IP Space](lab-ip-space.md)
-
-Since there is no NSX, the Software Defined Networking capabilities are basic. The 172.16.x.x space is given manually to various services.
-
-
-## [Virtualization and Services](virtualization.md)
-
-
-The server has ESXi installed and hosts the current version of vSphere 8. NSX is not installed because it may not be compatibile with the processor. The Ubiquity network device is able to provide VLAN space on the 172.16.x.x IP range, so all network needs just run on that same network.
-
-
-# Lab VMs
-
-### [Microceph](microceph.md)
-
-There are Ubuntu and Windows bastions running needed services, including PiHole DNS and the Unifi network management software. A Ubuntu Server hosts Microceph to provide S3-compatible storage.
-
-
-# Tanzu Application Service
-
-TAS / Clound Foundry is a major installation on the Lab. Currently TAS 4 Small Footprint runs. Small Footprint has identical code and services, but requires much fewer VMs as some services are either not deployed or packed more densely on single VMs.
-
-### [Installing TAS](tas-application-service.md)
-### [Installing Tiles](tas-tiles.md)
-### [Deploying Spring apps](spring-apps.md)
+- [`docs/legacy-tas/`](docs/legacy-tas/README.md) — the retired TAS 4 / BOSH foundation and its
+  supporting VMs. Historical reference only; nothing there is live.

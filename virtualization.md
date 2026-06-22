@@ -1,5 +1,10 @@
 # VMware / Unifi SDDC
 
+> **Current state:** ESXi (vSphere **7.0.3**) and vCenter run on VLAN 20 (`192.168.20.10/.13`
+> and `.11`). The install/config procedures below are still the working reference, but the
+> PiHole/bastion VMs they describe are **retired** — lab DNS is now the UDM Pro at
+> `192.168.20.1`. See `lab-ip-space.md`.
+
 ## ESXi
 
 The processor I use is unsupported. It is Sandy Bridge, and at least five architecture generations behind the bottom supported tier. That said, one can accept a warning, and then the installation proceeds. I did not have any trouble yet, but I hear products like NSX4 will have problems.
@@ -32,7 +37,10 @@ I downloaded the lastest Ubuntu Desktop ISO. I then uploaded it to a Datastore. 
 * Set static IP
 
 
-### Install Pihole
+### Install Pihole (retired)
+
+> **Retired.** PiHole is no longer deployed; the UDM Pro (`192.168.20.1`) is the lab DNS.
+> Kept as reference for the role DNS played.
 
 Pihole is an open source DNS tool for Linux, originally targeted at low-power Raspberry Pis. It's main use case is to be the DNS server for your network and "black hole" requests from your workstation to ad networks, based on lists maintained by 3rd parties. In this case it is used as a plain DNS server to provide name-based access to the various lab services.
 
