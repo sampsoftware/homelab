@@ -37,7 +37,10 @@ MicroCeph S3 storage, an Ubuntu bastion, an Nvidia-GPU server).
 | `spring-apps.md` | Deploying Spring apps to TAS (currently empty) |
 | `common-operations.md` | Day-2 ops: SSH to BOSH director, `bosh` CLI env vars + command cheatsheet |
 | `architecture.md` | Mermaid diagram of the HAProxy → GoRouter → Diego traffic path |
-| `certbot.sh` | Wildcard TLS via certbot + Cloudflare DNS-01 for the `*.sampsoftware.net` domains |
+| `certs.md` | **The certificate plan** — LE + Cloudflare DNS-01, the two domain namespaces, LAN-only split-horizon DNS, and how the appliance cert is issued/injected |
+| `certbot.sh` | Legacy one-shot wildcard cert (LE + Cloudflare DNS-01). Superseded by `certs.md`'s split-cert scheme; see notes there |
+| `issue-appliance-cert.sh` | Issue the LE wildcard for the re-domained Tanzu appliance (`*.tpcf.lab.sampsoftware.net` + sys/apps), with a deploy hook |
+| `deploy-cert-to-appliance.sh` | certbot deploy-hook: push the cert into the appliance's Traefik (`/opt/traefik/certs`) and reload |
 | `ceph-test.py` | Small script to exercise the Ceph S3 endpoint |
 | `vcsa-shell-access.md` | Reference: why VCSA's appliancesh blocks scripted SSH, and the gotchas (faillock, ANSI prompts, PAM pwhistory). The *capability* lives in the `vcsa-drive` skill |
 | `.claude/skills/vcsa-drive/` | **Skill** — drive interactive VCSA admin tools headlessly (reset a lost SSO password, change appliance root). `SKILL.md` + the `vcsa_drive.py` pty helper. See `.claude/README.md` |
