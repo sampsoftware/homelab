@@ -81,12 +81,18 @@ The gateway carries:
 Flat tenants/hosts ride `*.vcf` for free; only depth-needing tenants (Tanzu) add wildcards.
 Cert mechanics — issuance, the gateway, the appliance — are in [`certs.md`](certs.md).
 
-## Current vs. target
+## Current state
 
-This scheme is the **target**. Today the infra hosts still answer on their existing
-`*.lab.sampsoftware.net` names (e.g. `esxi-t620.lab.sampsoftware.net` → `192.168.20.13`,
-`vcenter.lab.sampsoftware.net` → `192.168.20.11`); see [`lab-ip-space.md`](lab-ip-space.md).
-The `vcf` names for vCenter/ESXi are introduced as **gateway-served trusted front doors**
-(`gateway/`), proxying to the hosts — their underlying identities/PNID can stay as-is, or be
-migrated later. The **Tanzu appliance is natively `tanzu.vcf.sampsoftware.net`** — that's its
-real domain in `tpa-homelab/config.json`, set at deploy time, not a front door.
+The scheme is largely realized:
+
+- **vCenter** was rebuilt natively on `vcf`: PNID `vcenter.vcf.sampsoftware.net` (VCSA 8.0.3,
+  `192.168.20.14`), carrying its own trusted LE cert on the appliance itself (a reverse proxy
+  can't front vCenter — SSO binds to the PNID; see [`certs.md`](certs.md)).
+- **ESXi** keeps its host/PNID name `esxi-t620.lab.sampsoftware.net` (changing an ESXi hostname
+  is in-place but not yet done); it's reached *trusted* via the gateway front-door
+  `esxi-t620.vcf.sampsoftware.net` (`gateway/`), since ESXi has no SSO to upset.
+- **Tanzu appliance** is natively `tanzu.vcf.sampsoftware.net` (its `tpa-homelab/config.json`
+  domain, set at deploy).
+
+So the only `lab` remnant in the VMware estate is ESXi's own management hostname; everything an
+operator touches is under `vcf`.

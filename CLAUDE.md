@@ -38,8 +38,9 @@ configured from the sibling **`tpa-homelab`** repo.
 | `naming.md` | **The DNS naming scheme** — the `<workload>.<substrate>.sampsoftware.net` taxonomy; why VMware lives under `vcf.`, personal under `lab.` |
 | `virtualization.md` | Installing & configuring ESXi and vCenter; recovering VCSA passwords headless |
 | `unifi.md` | Ubiquiti UDM Pro / UniFi Identity Enterprise console + credentials pointers |
-| `certs.md` | **The certificate plan** — trusted TLS via a gateway VM (Traefik + ACME), auto-renewing; how infra hosts are proxied and the appliance cert is pushed |
-| `gateway/` | **The cert/ingress gateway VM** — Traefik + ACME scaffold (compose, config, runbook) that reverse-proxies vCenter/ESXi under `*.vcf` with auto-renewing LE certs |
+| `certs.md` | **The certificate plan** — trusted auto-renewing TLS: vCenter cert pushed to Machine SSL, ESXi proxied, appliance cert pushed to its Traefik. All from `gw-vcf` |
+| `gateway/` | **The cert/ingress gateway VM** (`gw-vcf`) — Traefik + ACME scaffold; reverse-proxies **ESXi** under `*.vcf` (vCenter is not proxied — see certs.md) |
+| `push-cert-to-vcenter.sh` | certbot deploy-hook: push the LE cert onto vCenter's Machine SSL via the vSphere REST API (appends ISRG root for the trust anchor). Runs on `gw-vcf` |
 | `issue-appliance-cert.sh` | Issue the LE wildcard for the Tanzu appliance (`*.tanzu.vcf.sampsoftware.net` + sys/apps), with a deploy hook |
 | `deploy-cert-to-appliance.sh` | certbot deploy-hook: push the cert into the appliance's Traefik (`/opt/traefik/certs`) and reload |
 | `certbot.sh` | Legacy one-shot wildcard cert (LE + Cloudflare DNS-01). Superseded by the gateway scheme in `certs.md`; kept for reference |
@@ -63,10 +64,13 @@ network; that addressing is **retired** and survives only in `docs/legacy-tas/`.
 - **Network:** lab is on **`192.168.20.0/24`, VLAN 20**; gateway **and DNS** are the UDM Pro at
   `192.168.20.1`. Uplink is Xfinity cable (~1.2 Gbit) → UDM Pro.
 - **Core endpoints:** ESXi host `esxi-t620.lab.sampsoftware.net` (`192.168.20.10` / `.13`,
-  vSphere 7.0.3), vCenter `vcenter.lab.sampsoftware.net` (`192.168.20.11`,
-  `administrator@vsphere.local`), the cert/ingress gateway VM `gw-vcf` (`192.168.20.5`,
-  Ubuntu/Docker — see `gateway/`), and the Tanzu Platform appliance (`192.168.20.12`, deploy
-  pending; a stale appliance VM is still on the host, powered off, awaiting replacement).
+  vSphere 7.0.3), vCenter **`vcenter.vcf.sampsoftware.net` (`192.168.20.14`, VCSA 8.0.3,
+  `administrator@vsphere.local` / trusted LE cert)**, the cert/ingress gateway VM `gw-vcf`
+  (`192.168.20.5`, Ubuntu/Docker — see `gateway/`), and the Tanzu Platform appliance
+  (`192.168.20.12`, deploy pending; a stale 10.3.1 appliance VM is still on the host, powered
+  off, awaiting replacement). The old `.11` vCenter (7.0.3) was decommissioned.
+- **Cert automation** (all on `gw-vcf`): vCenter LE cert auto-pushed to Machine SSL (certbot →
+  REST API), ESXi reverse-proxied via Traefik, appliance cert pushed to its own Traefik. See `certs.md`.
 - **DNS:** the UDM Pro at `192.168.20.1` is the lab resolver (PiHole is retired). For the
   appliance, add wildcard `*.tanzu.vcf.sampsoftware.net → 192.168.20.12` on the UDM (LAN-only
   split-horizon — see `certs.md`).

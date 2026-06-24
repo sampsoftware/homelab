@@ -16,23 +16,10 @@ http:
       # We terminate trusted TLS at Traefik and skip verification upstream.
       insecureSkipVerify: true
 
+  # NOTE: vCenter is NOT proxied here — its SSO binds to the PNID, so it carries a
+  # real LE cert on the appliance itself (certbot auto-push; see ../../certs.md).
+  # Only ESXi (no SSO) is reverse-proxied.
   routers:
-    vcenter:
-      rule: "Host(`vcenter.vcf.sampsoftware.net`)"
-      entryPoints:
-        - websecure
-      service: vcenter
-      # No security-headers/CSP here: the vCenter H5 UI breaks under a
-      # tight CSP. local-network-only is the only middleware applied.
-      middlewares:
-        - local-network-only
-      tls:
-        certResolver: cloudflare
-        domains:
-          - main: "vcf.sampsoftware.net"
-            sans:
-              - "*.vcf.sampsoftware.net"
-
     esxi:
       rule: "Host(`esxi-t620.vcf.sampsoftware.net`)"
       entryPoints:
@@ -50,12 +37,6 @@ http:
               - "*.vcf.sampsoftware.net"
 
   services:
-    vcenter:
-      loadBalancer:
-        servers:
-          - url: "https://192.168.20.11"
-        serversTransport: insecure-backend
-
     esxi:
       loadBalancer:
         servers:

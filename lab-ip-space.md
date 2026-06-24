@@ -14,12 +14,13 @@ see `docs/legacy-tas/` for the historical map.
 | `192.168.20.1` | — | UDM Pro — gateway **and** lab DNS resolver |
 | `192.168.20.5` | `gw.vcf.sampsoftware.net` | Traefik/ACME cert+ingress gateway VM (Ubuntu 24.04, Docker) — see `gateway/` |
 | `192.168.20.10` | `esxi-t620.lab.sampsoftware.net` (vmk0) | ESXi host — management vmkernel |
-| `192.168.20.11` | `vcenter.lab.sampsoftware.net` | vCenter Server appliance (VCSA 7.0.3) |
 | `192.168.20.12` | `*.tanzu.vcf.sampsoftware.net` | Tanzu Platform appliance (**deploy pending**) |
-| `192.168.20.13` | `esxi-t620.lab.sampsoftware.net` (vmk1) | ESXi host — second vmkernel (DNS resolves the name here) |
+| `192.168.20.13` | `esxi-t620.lab.sampsoftware.net` (vmk1) | ESXi host — second vmkernel |
+| `192.168.20.14` | `vcenter.vcf.sampsoftware.net` | vCenter Server appliance (**VCSA 8.0.3**) |
 
-VMs on the host today: the **vCenter** appliance (`.11`), the new **`gw-vcf`** gateway VM (`.5`),
-and the **stale Tanzu appliance** VM (powered off, to be replaced by a fresh deploy on `.12`).
+VMs on the host today: **`vcenter-vcf`** (`.14`, the rebuilt VCSA 8.0.3), the **`gw-vcf`** gateway
+VM (`.5`), and the **stale 10.3.1 Tanzu appliance** VM (powered off, to be replaced by a fresh
+10.4.0 deploy on `.12`). The old `.11` vCenter (7.0.3) was decommissioned during the rebuild.
 Everything else the lab once ran (bastion, PiHole, GPU server, MicroCeph, the TAS foundation) is
 retired.
 
