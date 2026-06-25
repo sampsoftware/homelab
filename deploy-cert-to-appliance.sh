@@ -6,43 +6,47 @@
 #   - Manually: pass the live dir as $1, e.g.
 #       ./deploy-cert-to-appliance.sh /etc/letsencrypt/live/tanzu-appliance
 #
-# Traefik (the appliance's single ingress) mounts /opt/traefik/certs -> /certs:ro
-# (traefik.service). We drop fullchain.pem + privkey.pem there under the names Traefik's
-# TLS config references, then restart Traefik.
+# On gw-vcf this is installed as /usr/local/bin/push-cert-to-appliance.sh and wired as the
+# renew_hook in /etc/letsencrypt/renewal/tanzu-appliance.conf (keep the two in sync).
 #
-# IMPORTANT: confirm the expected filenames once, on the running appliance:
-#   grep -rEi 'certFile|keyFile|certificates' /opt/traefik/config
-# and set CERT_CRT / CERT_KEY below to match. Defaults are the common appliance names.
+# The appliance's single ingress Traefik loads /opt/traefik/certs/apps-fullchain.pem +
+# apps-key.pem (per /opt/traefik/config/dynamic/tls.yml). We drop the LE fullchain + key there
+# under exactly those names, then restart Traefik.
+#
+# ⚠️ This only changes what the EDGE serves. The internal `frpc` stitching agent pins the
+#    appliance CA bundle, so for a publicly-trusted cert you must ALSO add the LE root (ISRG Root
+#    X1) to the hub-tas-collector tile property `.properties.hub_ca_certificate` (one-time) — else
+#    the Platform Services tile silently fails to deploy. Renewals are safe once that's done (a
+#    renewed LE cert still chains to ISRG Root X1). Full procedure:
+#    ../tpa-homelab/tanzu-platform-appliance.md → "Custom edge certificate (and the frpc trust trap)".
 set -euo pipefail
 
 LINEAGE="${1:-${RENEWED_LINEAGE:-/etc/letsencrypt/live/tanzu-appliance}}"
 
-# Appliance access. After the re-domain the host is the appliance IP (DNS may not be live yet
-# during first issuance), with the opsman key. vcap has passwordless sudo on the appliance.
+# Appliance access. The host is the appliance IP (DNS may not be live during first issuance),
+# with the appliance SSH key. vcap has passwordless sudo on the appliance.
 APPLIANCE_HOST="${APPLIANCE_HOST:-192.168.20.12}"
 APPLIANCE_USER="${APPLIANCE_USER:-vcap}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_opsman}"
+SSH_KEY="${SSH_KEY:-/root/.secrets/id_appliance}"
 
-# Target filenames inside /opt/traefik/certs (confirm — see note above).
+# Target filenames inside /opt/traefik/certs — these are what tls.yml references; do not rename.
 CERT_DIR="/opt/traefik/certs"
-CERT_CRT="${CERT_CRT:-tls.crt}"
-CERT_KEY="${CERT_KEY:-tls.key}"
+CERT_CRT="${CERT_CRT:-apps-fullchain.pem}"
+CERT_KEY="${CERT_KEY:-apps-key.pem}"
 
-SSH=(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "${APPLIANCE_USER}@${APPLIANCE_HOST}")
-SCP=(scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new)
+O=(-i "$SSH_KEY" -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null)
 
-echo "Deploying $LINEAGE -> ${APPLIANCE_USER}@${APPLIANCE_HOST}:${CERT_DIR}/{$CERT_CRT,$CERT_KEY}"
+echo "[push] $(date -u +%FT%TZ) deploying $LINEAGE -> ${APPLIANCE_USER}@${APPLIANCE_HOST}:${CERT_DIR}/{$CERT_CRT,$CERT_KEY}"
 
-# Stage to a temp dir on the appliance, then move into place with sudo.
-TMP="/tmp/tanzu-cert.$$"
-"${SSH[@]}" "mkdir -p $TMP"
-"${SCP[@]}" "$LINEAGE/fullchain.pem" "${APPLIANCE_USER}@${APPLIANCE_HOST}:$TMP/$CERT_CRT"
-"${SCP[@]}" "$LINEAGE/privkey.pem"   "${APPLIANCE_USER}@${APPLIANCE_HOST}:$TMP/$CERT_KEY"
+# Stage to a temp dir on the appliance, then install into place with sudo (0600, root-owned).
+TMP="/tmp/appl-cert.$$"
+ssh "${O[@]}" "${APPLIANCE_USER}@${APPLIANCE_HOST}" "mkdir -p $TMP"
+scp "${O[@]}" "$LINEAGE/fullchain.pem" "${APPLIANCE_USER}@${APPLIANCE_HOST}:$TMP/$CERT_CRT"
+scp "${O[@]}" "$LINEAGE/privkey.pem"   "${APPLIANCE_USER}@${APPLIANCE_HOST}:$TMP/$CERT_KEY"
+ssh "${O[@]}" "${APPLIANCE_USER}@${APPLIANCE_HOST}" \
+    "sudo install -o root -g root -m0600 $TMP/$CERT_CRT $CERT_DIR/$CERT_CRT && \
+     sudo install -o root -g root -m0600 $TMP/$CERT_KEY $CERT_DIR/$CERT_KEY && \
+     rm -rf $TMP && sudo systemctl restart traefik.service && \
+     echo '[push] appliance traefik restarted with LE cert'"
 
-"${SSH[@]}" "sudo install -o root -g root -m 0644 $TMP/$CERT_CRT $CERT_DIR/$CERT_CRT && \
-             sudo install -o root -g root -m 0600 $TMP/$CERT_KEY $CERT_DIR/$CERT_KEY && \
-             rm -rf $TMP && \
-             sudo systemctl restart traefik.service && \
-             echo 'Traefik restarted with new cert.'"
-
-echo "Done."
+echo "[push] done."

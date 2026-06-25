@@ -56,11 +56,22 @@ host's self-signed cert (expected). Build runbook: [`gateway/README.md`](gateway
 
 The appliance self-signs at first boot (`ovf-firstboot.sh`) and mounts `/opt/traefik/certs`. So:
 
-- **`issue-appliance-cert.sh`** issues the LE wildcard (`tanzu.vcf` + `*.tanzu.vcf` + `*.sys.tanzu.vcf`
-  + `*.apps.tanzu.vcf`) via DNS-01.
-- **`deploy-cert-to-appliance.sh`** is its `--deploy-hook`: copies `fullchain`/`privkey` into the
-  appliance's `/opt/traefik/certs/` and restarts Traefik — renewals auto-push. Confirm the target
-  filenames once (`grep -rEi 'certFile|keyFile' /opt/traefik/config`).
+- **`issue-appliance-cert.sh`** issues the LE wildcard via DNS-01. **7 SANs** (one per label depth):
+  `tanzu.vcf`, `*.tanzu.vcf`, `*.sys.tanzu.vcf`, `*.apps.tanzu.vcf`, `*.apps.sys.tanzu.vcf`,
+  `*.login.sys.tanzu.vcf`, `*.uaa.sys.tanzu.vcf`.
+- **`deploy-cert-to-appliance.sh`** is its `--deploy-hook` (installed on `gw-vcf` as
+  `/usr/local/bin/push-cert-to-appliance.sh`): copies `fullchain`/`privkey` into the appliance's
+  `/opt/traefik/certs/` as `apps-fullchain.pem` + `apps-key.pem` (the names `tls.yml` references)
+  and restarts Traefik — renewals auto-push.
+
+> ⚠️ **The edge cert is only HALF the job — and the missing half breaks the platform silently.**
+> `hub.tanzu.vcf:443` is dual-use: browser Hub UI *and* the internal `frpc` stitching channel,
+> which **pins** the appliance CA (not the system trust). A publicly-trusted edge cert that `frpc`
+> doesn't trust makes the Platform Services tile (`hub-tas-collector`) fail to deploy in an endless
+> retry loop. **Fix:** add the LE root **ISRG Root X1** to the tile property
+> `.properties.hub_ca_certificate` and `apply-changes` (one-time; renewals stay valid since LE keeps
+> chaining to ISRG Root X1). Full procedure with commands:
+> `../tpa-homelab/tanzu-platform-appliance.md` → *Custom edge certificate (and the frpc trust trap)*.
 
 The appliance's **internal** BOSH/GoRouter certs stay self-signed (normal); replacing the edge cert
 gives trusted Hub/Apps-Manager + `cf login` without `--skip-ssl-validation`.
