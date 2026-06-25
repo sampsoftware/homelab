@@ -90,9 +90,50 @@ When power returns:
 5. **Verify** once settled: edge endpoints return 200/302 with the LE cert
    (`hub.`, `apps.sys.`, `login.sys.`, `api.sys.` `…tanzu.vcf.sampsoftware.net`).
 
+## Scripts (this repo)
+
+Two scripts automate the cycle. Both read creds from `homelab.env`, tolerate its CRLF endings, and
+honor `DRYRUN=1` (log actions, touch nothing):
+
+- **`lab-shutdown.sh`** — graceful, ordered guest shutdown (`tanzu-platform-appliance` → `gw-vcf` →
+  `vcenter-vcf`, with a per-VM grace window and a forced power-off only if a guest overstays), then
+  powers off the host (`govc host.shutdown -f`). It drives the ESXi host **directly**, not vCenter,
+  so shutting vCenter down never cuts its own control path. Run a `DRYRUN=1` pass first.
+- **`lab-poweron.sh`** — powers the host back on via **iDRAC** (`ipmitool … chassis power on`);
+  host autostart then restores the VMs.
+
+## Unattended daily off (7 pm) / on (7 am)
+
+```cron
+# on the always-on scheduler host (see constraint), crontab -e:
+0 19 * * *  /path/to/lab-shutdown.sh >> /var/log/lab-shutdown.log 2>&1
+0  7 * * *  /path/to/lab-poweron.sh  >> /var/log/lab-poweron.log  2>&1
+```
+
+**Why two mechanisms:** once `lab-shutdown.sh` powers the host off it's in soft-off (S5) — ESXi is
+gone, so the *only* thing that can bring it back is the out-of-band controller (**iDRAC**, alive on
+aux power whenever the PSU has AC). WoL is unreliable on ESXi after a clean poweroff; use iDRAC/IPMI.
+
+> ⚠️ **The scheduler must be an always-on machine that is NOT on the T620.** `gw-vcf`, the appliance
+> and vCenter all die with the host, so none of them can power it back on. Use a tiny always-on box
+> (Raspberry Pi), the Windows workstation's Task Scheduler (invoking WSL), or similar — with `govc` +
+> `jq` (shutdown) and `ipmitool` (power-on) on PATH and network reach to both the ESXi host and iDRAC.
+
+**Prerequisites to wire up (not present yet):**
+
+- **iDRAC reachable + credentialed.** Add `IDRAC_HOST` / `IDRAC_USER` / `IDRAC_PASS` to `homelab.env`
+  (not there today) and enable *IPMI over LAN* in iDRAC. `192.168.20.9:443` is open and is a likely
+  iDRAC — confirm before trusting it.
+- **`ipmitool`** on the scheduler host (not in the dev container).
+- A `DRYRUN=1` pass of each script from the scheduler host to confirm creds/reachability.
+- **Watch the first few cycles:** the appliance reconverges its BOSH fleet on every cold boot (high
+  load 30–60 min, then settles; cert state persists). Confirm it reliably reaches "all running"
+  inside the 7 am→usable window before trusting it unattended.
+
 ## Still recommended
 
-- **UPS with automated shutdown** (NUT / `apcupsd`) driving the graceful sequence above. This is what
-  turns a "flat power outage" into a *clean* shutdown and is the single biggest protection for the
-  stateful appliance — autostart only helps on the way back up, not on the way down.
+- **UPS with automated shutdown** (NUT / `apcupsd`) — point its on-battery hook at **`lab-shutdown.sh`**
+  so a power event triggers the same clean, ordered shutdown. This is what turns a "flat power outage"
+  into a *graceful* shutdown and is the single biggest protection for the stateful appliance —
+  autostart and the 7 am cron only help on the way back up, not on the way down.
 - Fix the stale `homelab.env` `VCENTER_URL` (`.11`/`vcenter.lab` → `.14`/`vcenter.vcf`).
