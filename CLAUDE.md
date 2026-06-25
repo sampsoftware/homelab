@@ -37,6 +37,7 @@ configured from the sibling **`tpa-homelab`** repo.
 | `lab-ip-space.md` | **The IP/network source of truth** — VLAN 20 assignment table, DNS, upstream |
 | `naming.md` | **The DNS naming scheme** — the `<workload>.<substrate>.sampsoftware.net` taxonomy; why VMware lives under `vcf.`, personal under `lab.` |
 | `virtualization.md` | Installing & configuring ESXi and vCenter; recovering VCSA passwords headless |
+| `shutdown-and-recovery.md` | **Safe host shutdown + power-outage recovery** — the configured autostart/autostop order (vCenter→gw-vcf→appliance) and what to expect on cold start |
 | `unifi.md` | Ubiquiti UDM Pro / UniFi Identity Enterprise console + credentials pointers |
 | `certs.md` | **The certificate plan** — trusted auto-renewing TLS: vCenter cert pushed to Machine SSL, ESXi proxied, appliance cert pushed to its Traefik. All from `gw-vcf` |
 | `gateway/` | **The cert/ingress gateway VM** (`gw-vcf`) — Traefik + ACME scaffold; reverse-proxies **ESXi** under `*.vcf` (vCenter is not proxied — see certs.md) |
