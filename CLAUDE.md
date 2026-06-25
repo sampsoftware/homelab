@@ -42,7 +42,7 @@ configured from the sibling **`tpa-homelab`** repo.
 | `lab-poweron.sh` | Remote power-on via the iDRAC Redfish API (`curl` to `192.168.20.9`; IPMI-over-LAN is disabled); host autostart restores the VMs |
 | `unifi.md` | Ubiquiti UDM Pro / UniFi Identity Enterprise console + credentials pointers |
 | `certs.md` | **The certificate plan** — trusted auto-renewing TLS: vCenter cert pushed to Machine SSL, ESXi proxied, appliance cert pushed to its Traefik. All from `gw-vcf` |
-| `gateway/` | **The cert/ingress gateway VM** (`gw-vcf`) — Traefik + ACME scaffold; reverse-proxies **ESXi** under `*.vcf` (vCenter is not proxied — see certs.md) |
+| `gateway/` | **The cert/ingress gateway VM** (`gw-vcf`) — Traefik + ACME scaffold; reverse-proxies **ESXi + the iDRAC** under `*.vcf` with the auto-renewing wildcard (vCenter is not proxied — see certs.md) |
 | `push-cert-to-vcenter.sh` | certbot deploy-hook: push the LE cert onto vCenter's Machine SSL via the vSphere REST API (appends ISRG root for the trust anchor). Runs on `gw-vcf` |
 | `issue-appliance-cert.sh` | Issue the LE wildcard for the Tanzu appliance (`*.tanzu.vcf.sampsoftware.net` + sys/apps), with a deploy hook |
 | `deploy-cert-to-appliance.sh` | certbot deploy-hook: push the cert into the appliance's Traefik (`/opt/traefik/certs`) and reload |

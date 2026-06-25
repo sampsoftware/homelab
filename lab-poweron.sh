@@ -5,12 +5,16 @@
 # gw-vcf -> appliance — see shutdown-and-recovery.md). Nothing else to do here.
 #
 # Uses Redfish over 443 (not IPMI): on this iDRAC, IPMI-over-LAN (udp/623) is disabled, while Redfish
-# is enabled and needs no ipmitool. Reads IDRAC_HOST / IDRAC_USER / IDRAC_PASS from an env file
-# (default /run/secrets/codedev/homelab.env); IDRAC_HOST defaults to the confirmed iDRAC 192.168.20.9.
-# MUST run on an always-on machine that is NOT a VM on this host. Set DRYRUN=1 to log without acting.
+# is enabled and needs no ipmitool. Reads IDRAC_USERNAME / IDRAC_PASSWORD from an env file (default
+# /run/secrets/codedev/homelab.env). MUST run on an always-on machine that is NOT a VM on this host.
+# Set DRYRUN=1 to log without acting.
+#
+# IMPORTANT: targets the iDRAC's RAW IP (IDRAC_IP, default 192.168.20.9) — NOT the proxied name
+# idrac-t620.vcf.sampsoftware.net. That name points at gw-vcf's Traefik, and gw-vcf is a VM on this
+# very host, so it is DOWN at power-on time. Out-of-band power-on must hit the iDRAC directly.
 #
 # ipmitool alternative (only if you enable IPMI-over-LAN in the iDRAC network settings):
-#   ipmitool -I lanplus -H $IDRAC_HOST -U $IDRAC_USER -P $IDRAC_PASS chassis power on
+#   ipmitool -I lanplus -H $IDRAC_IP -U $IDRAC_USERNAME -P $IDRAC_PASSWORD chassis power on
 set -uo pipefail
 
 LAB_ENV="${LAB_ENV:-/run/secrets/codedev/homelab.env}"
@@ -21,10 +25,10 @@ die() { log "FATAL: $*"; exit 1; }
 [ -r "$LAB_ENV" ] || die "env file not readable: $LAB_ENV"
 set -a; . "$LAB_ENV"; set +a
 strip() { printf '%s' "${1:-}" | tr -d '\r\n'; }
-H="$(strip "${IDRAC_HOST:-192.168.20.9}")"
-U="$(strip "${IDRAC_USER:-}")"
-P="$(strip "${IDRAC_PASS:-}")"
-[ -n "$U" ] && [ -n "$P" ] || die "IDRAC_USER/IDRAC_PASS not set in $LAB_ENV"
+H="$(strip "${IDRAC_IP:-192.168.20.9}")"
+U="$(strip "${IDRAC_USERNAME:-${IDRAC_USER:-}}")"
+P="$(strip "${IDRAC_PASSWORD:-${IDRAC_PASS:-}}")"
+[ -n "$U" ] && [ -n "$P" ] || die "IDRAC_USERNAME/IDRAC_PASSWORD not set in $LAB_ENV"
 command -v curl >/dev/null || die "curl not on PATH"
 
 SYS="https://$H/redfish/v1/Systems/System.Embedded.1"

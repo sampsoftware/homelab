@@ -121,14 +121,14 @@ aux power whenever the PSU has AC). WoL is unreliable on ESXi after a clean powe
 > `jq` (shutdown) and `curl` + `python3` (power-on) on PATH and network reach to both the ESXi host
 > and the iDRAC.
 
-**Prerequisites to wire up (not present yet):**
+**Prerequisites:**
 
-- **iDRAC credentials.** The iDRAC is **`192.168.20.9`** (confirmed — Redfish answers on 443; IPMI
-  udp/623 is **disabled**, which is why `lab-poweron.sh` uses Redfish, not `ipmitool`). Add
-  `IDRAC_USER` / `IDRAC_PASS` to `homelab.env` (`IDRAC_HOST` defaults to `192.168.20.9`). Not there
-  today — a `DRYRUN=1` run dies on the missing creds until you add them.
-- **`curl` + `python3`** on the scheduler host (both standard; no `ipmitool` needed). Only enable
-  IPMI-over-LAN + install `ipmitool` if you specifically prefer the IPMI path noted in the script.
+- **iDRAC credentials** — present and validated. `IDRAC_USERNAME` / `IDRAC_PASSWORD` (and `IDRAC_URL`)
+  are in `homelab.env`; `DRYRUN=1 bash lab-poweron.sh` authenticates and reads `PowerState`. Note
+  `lab-poweron.sh` targets the iDRAC's **raw IP `192.168.20.9`** (`IDRAC_IP`), *not* the proxied name
+  `idrac-t620.vcf.sampsoftware.net` — that name points at gw-vcf's Traefik (trusted browser UI), and
+  gw-vcf is down at power-on time. IPMI udp/623 is disabled, so Redfish over 443 is used (not `ipmitool`).
+- **`curl` + `python3`** on the scheduler host (both standard; no `ipmitool` needed).
 - A `DRYRUN=1` pass of each script from the scheduler host to confirm creds/reachability.
 - **Watch the first few cycles:** the appliance reconverges its BOSH fleet on every cold boot (high
   load 30–60 min, then settles; cert state persists). Confirm it reliably reaches "all running"

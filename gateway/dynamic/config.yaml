@@ -18,7 +18,9 @@ http:
 
   # NOTE: vCenter is NOT proxied here — its SSO binds to the PNID, so it carries a
   # real LE cert on the appliance itself (certbot auto-push; see ../../certs.md).
-  # Only ESXi (no SSO) is reverse-proxied.
+  # ESXi (no SSO) and the iDRAC are reverse-proxied: they only ever served self-signed
+  # certs (the iDRAC7's default cert even expired in 2021), and iDRAC7 has no usable
+  # API to import an external key+cert — so proxying is the clean, auto-renewing fix.
   routers:
     esxi:
       rule: "Host(`esxi-t620.vcf.sampsoftware.net`)"
@@ -36,9 +38,33 @@ http:
             sans:
               - "*.vcf.sampsoftware.net"
 
+    idrac:
+      # iDRAC web UI / HTML5 console (Traefik proxies the websockets transparently).
+      # Requires DNS: idrac-t620.vcf.sampsoftware.net -> 192.168.20.5 (gw-vcf), NOT .9.
+      # Automation that must run while gw-vcf is down (lab-poweron.sh) talks to the
+      # iDRAC's raw IP 192.168.20.9 instead — never this proxied name.
+      rule: "Host(`idrac-t620.vcf.sampsoftware.net`)"
+      entryPoints:
+        - websecure
+      service: idrac
+      middlewares:
+        - local-network-only
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: "vcf.sampsoftware.net"
+            sans:
+              - "*.vcf.sampsoftware.net"
+
   services:
     esxi:
       loadBalancer:
         servers:
           - url: "https://192.168.20.13"
+        serversTransport: insecure-backend
+
+    idrac:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.20.9"
         serversTransport: insecure-backend

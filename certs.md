@@ -18,6 +18,7 @@ certbot (+ deploy-hooks) for the push cases. One token (`CF_DNS_API_TOKEN`).
 |---|---|---|
 | **vCenter** `vcenter.vcf.sampsoftware.net` | LE cert **pushed onto vCenter's Machine SSL** (certbot → vSphere REST API) | A proxy can't front vCenter — SSO/SAML binds to the PNID, so you *must* hit the real name with a real cert. |
 | **ESXi** `esxi-t620.vcf.sampsoftware.net` | Gateway **reverse-proxy** (Traefik) | ESXi has no SSO; proxying the UI/API is clean and needs zero host changes. |
+| **iDRAC** `idrac-t620.vcf.sampsoftware.net` | Gateway **reverse-proxy** (Traefik) | iDRAC7 only served an (expired 2021) self-signed cert and has no usable API to import an external key+cert; proxying gives a trusted, auto-renewing cert with zero iDRAC changes. |
 | **Tanzu appliance** `*.tanzu.vcf…` | LE wildcard **pushed into the appliance's own Traefik** | The appliance already runs Traefik; double-proxying buys nothing. |
 
 ## vCenter — cert pushed to Machine SSL (auto-renewing)
@@ -44,13 +45,22 @@ sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials /root/.secre
 `/root/.secrets/vcenter.cred` (lab-only). Verify: `curl https://vcenter.vcf.sampsoftware.net/ui/`
 → trusted (no `-k`), `ssl_verify_result=0`.
 
-## ESXi — reverse-proxied via the gateway (`gateway/`)
+## ESXi + iDRAC — reverse-proxied via the gateway (`gateway/`)
 
-The gateway's Traefik holds a `*.vcf.sampsoftware.net` LE cert (ACME, auto-renew) and proxies
-`esxi-t620.vcf.sampsoftware.net` → `https://192.168.20.13` behind a `local-network-only` allowlist
-(backend self-signed via `insecureSkipVerify`). Point `esxi-t620.vcf` DNS at the gateway (`.5`) on
-the UDM. Covers the **web UI + API over 443**; VM consoles / OVF transfers on 902 still hit the
-host's self-signed cert (expected). Build runbook: [`gateway/README.md`](gateway/README.md).
+The gateway's Traefik holds a `*.vcf.sampsoftware.net` LE cert (ACME, auto-renew) and reverse-proxies
+two management UIs behind a `local-network-only` allowlist (backends self-signed via
+`insecureSkipVerify`); the trusted cert renews automatically with the gateway's wildcard — no
+per-target deploy-hook:
+
+- `esxi-t620.vcf.sampsoftware.net` → `https://192.168.20.13` — web UI + API over 443. VM consoles /
+  OVF transfers on 902 still hit the host's self-signed cert (expected).
+- `idrac-t620.vcf.sampsoftware.net` → `https://192.168.20.9` — iDRAC web UI + HTML5 console (Traefik
+  proxies the websockets transparently).
+
+**Point both names' DNS at the gateway (`.5`) on the UDM.** ⚠️ `idrac-t620.vcf` historically pointed
+at the iDRAC itself (`.9`); it must move to `.5` for the proxy. Out-of-band automation that runs while
+gw-vcf is down (`lab-poweron.sh` — gw-vcf is a VM on this host) therefore talks to the iDRAC's **raw
+IP `192.168.20.9`**, never the proxied name. Build runbook: [`gateway/README.md`](gateway/README.md).
 
 ## Tanzu appliance — cert pushed into its own Traefik
 
