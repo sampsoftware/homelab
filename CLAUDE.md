@@ -39,7 +39,7 @@ configured from the sibling **`tpa-homelab`** repo.
 | `virtualization.md` | Installing & configuring ESXi and vCenter; recovering VCSA passwords headless |
 | `shutdown-and-recovery.md` | **Safe host shutdown + power-outage recovery** — the configured autostart/autostop order (vCenter→gw-vcf→appliance), the off/on scripts, the unattended 7pm/7am cron design, and what to expect on cold start |
 | `lab-shutdown.sh` | Graceful ordered guest shutdown + host power-off, driving the ESXi host directly via `govc` (so it can shut vCenter down too). `DRYRUN=1` supported |
-| `lab-poweron.sh` | Remote power-on via iDRAC (`ipmitool` IPMI-over-LAN); host autostart restores the VMs |
+| `lab-poweron.sh` | Remote power-on via the iDRAC Redfish API (`curl` to `192.168.20.9`; IPMI-over-LAN is disabled); host autostart restores the VMs |
 | `unifi.md` | Ubiquiti UDM Pro / UniFi Identity Enterprise console + credentials pointers |
 | `certs.md` | **The certificate plan** — trusted auto-renewing TLS: vCenter cert pushed to Machine SSL, ESXi proxied, appliance cert pushed to its Traefik. All from `gw-vcf` |
 | `gateway/` | **The cert/ingress gateway VM** (`gw-vcf`) — Traefik + ACME scaffold; reverse-proxies **ESXi** under `*.vcf` (vCenter is not proxied — see certs.md) |

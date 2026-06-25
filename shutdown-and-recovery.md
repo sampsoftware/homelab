@@ -99,7 +99,7 @@ honor `DRYRUN=1` (log actions, touch nothing):
   `vcenter-vcf`, with a per-VM grace window and a forced power-off only if a guest overstays), then
   powers off the host (`govc host.shutdown -f`). It drives the ESXi host **directly**, not vCenter,
   so shutting vCenter down never cuts its own control path. Run a `DRYRUN=1` pass first.
-- **`lab-poweron.sh`** — powers the host back on via **iDRAC** (`ipmitool … chassis power on`);
+- **`lab-poweron.sh`** — powers the host back on via the **iDRAC Redfish API** (`curl`, since IPMI/623 is disabled on this iDRAC);
   host autostart then restores the VMs.
 
 ## Unattended daily off (7 pm) / on (7 am)
@@ -112,19 +112,23 @@ honor `DRYRUN=1` (log actions, touch nothing):
 
 **Why two mechanisms:** once `lab-shutdown.sh` powers the host off it's in soft-off (S5) — ESXi is
 gone, so the *only* thing that can bring it back is the out-of-band controller (**iDRAC**, alive on
-aux power whenever the PSU has AC). WoL is unreliable on ESXi after a clean poweroff; use iDRAC/IPMI.
+aux power whenever the PSU has AC). WoL is unreliable on ESXi after a clean poweroff; use the iDRAC
+(Redfish over 443 here, since IPMI-over-LAN is disabled).
 
 > ⚠️ **The scheduler must be an always-on machine that is NOT on the T620.** `gw-vcf`, the appliance
 > and vCenter all die with the host, so none of them can power it back on. Use a tiny always-on box
 > (Raspberry Pi), the Windows workstation's Task Scheduler (invoking WSL), or similar — with `govc` +
-> `jq` (shutdown) and `ipmitool` (power-on) on PATH and network reach to both the ESXi host and iDRAC.
+> `jq` (shutdown) and `curl` + `python3` (power-on) on PATH and network reach to both the ESXi host
+> and the iDRAC.
 
 **Prerequisites to wire up (not present yet):**
 
-- **iDRAC reachable + credentialed.** Add `IDRAC_HOST` / `IDRAC_USER` / `IDRAC_PASS` to `homelab.env`
-  (not there today) and enable *IPMI over LAN* in iDRAC. `192.168.20.9:443` is open and is a likely
-  iDRAC — confirm before trusting it.
-- **`ipmitool`** on the scheduler host (not in the dev container).
+- **iDRAC credentials.** The iDRAC is **`192.168.20.9`** (confirmed — Redfish answers on 443; IPMI
+  udp/623 is **disabled**, which is why `lab-poweron.sh` uses Redfish, not `ipmitool`). Add
+  `IDRAC_USER` / `IDRAC_PASS` to `homelab.env` (`IDRAC_HOST` defaults to `192.168.20.9`). Not there
+  today — a `DRYRUN=1` run dies on the missing creds until you add them.
+- **`curl` + `python3`** on the scheduler host (both standard; no `ipmitool` needed). Only enable
+  IPMI-over-LAN + install `ipmitool` if you specifically prefer the IPMI path noted in the script.
 - A `DRYRUN=1` pass of each script from the scheduler host to confirm creds/reachability.
 - **Watch the first few cycles:** the appliance reconverges its BOSH fleet on every cold boot (high
   load 30–60 min, then settles; cert state persists). Confirm it reliably reaches "all running"
