@@ -96,9 +96,11 @@ Two scripts automate the cycle. Both read creds from `homelab.env`, tolerate its
 honor `DRYRUN=1` (log actions, touch nothing):
 
 - **`lab-shutdown.sh`** — graceful, ordered guest shutdown (`tanzu-platform-appliance` → `gw-vcf` →
-  `vcenter-vcf`, with a per-VM grace window and a forced power-off only if a guest overstays), then
-  powers off the host (`govc host.shutdown -f`). It drives the ESXi host **directly**, not vCenter,
-  so shutting vCenter down never cuts its own control path. Run a `DRYRUN=1` pass first.
+  `vcenter-vcf`, with a per-VM grace window and a forced power-off only if a guest overstays — e.g.
+  the appliance under heavy load can have **dead VMware Tools**, so it gets hard-killed), then powers
+  off the host (`govc host.shutdown -f`). It talks to the ESXi host by **direct IP** (`ESXI_IP`,
+  default .13→.10) — *not* `ESXI_URL`/`esxi-t620.vcf`, which is gw-vcf's proxy that this very script
+  shuts down (same gateway-inception trap as the iDRAC). Run a `DRYRUN=1` pass first.
 - **`lab-poweron.sh`** — powers the host back on via the **iDRAC Redfish API** (`curl`, since IPMI/623 is disabled on this iDRAC);
   host autostart then restores the VMs.
 

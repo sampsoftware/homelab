@@ -6,8 +6,10 @@
 # (most-stateful first, so each gets its full flush window while the rest are still up), then the
 # host is powered off (soft off / S5 — iDRAC stays alive on aux power so it can be powered back on).
 #
-# Requires: govc on PATH; network reach to the ESXi host; ESXi creds. Reads them from an env file
-# (default /run/secrets/codedev/homelab.env) with keys ESXI_URL / ESXI_USER / ESXI_PASSWORD.
+# Requires: govc on PATH; direct network reach to the ESXi host's mgmt IP; ESxi creds. Reads them
+# from an env file (default /run/secrets/codedev/homelab.env): ESXI_USER / ESXI_PASSWORD, and
+# optionally ESXI_IP (the host's direct IP; defaults to trying 192.168.20.13 then .10). It does NOT
+# use ESXI_URL — that name is gw-vcf's proxy, which this script shuts down. See shutdown-and-recovery.md.
 #
 # MUST run on an always-on machine that is NOT a VM on this host (gw-vcf etc. die with the host).
 # Set DRYRUN=1 to log actions without touching anything. See shutdown-and-recovery.md.
@@ -25,21 +27,29 @@ die() { log "FATAL: $*"; exit 1; }
 [ -r "$LAB_ENV" ] || die "env file not readable: $LAB_ENV"
 set -a; . "$LAB_ENV"; set +a
 strip() { printf '%s' "${1:-}" | tr -d '\r\n'; }
-export GOVC_URL="$(strip "${ESXI_URL:-}")"
 export GOVC_USERNAME="$(strip "${ESXI_USER:-}")"
 export GOVC_PASSWORD="$(strip "${ESXI_PASSWORD:-}")"
 export GOVC_INSECURE=1
-[ -n "$GOVC_URL" ] || die "ESXI_URL not set in $LAB_ENV"
 
 run() { if [ "$DRYRUN" = "1" ]; then log "DRYRUN> $*"; else "$@"; fi; }
-
 powerstate() { govc vm.info -json "$1" 2>/dev/null | jq -r '.virtualMachines[0].runtime.powerState // "unknown"'; }
 
 # --- preflight ---
 command -v govc >/dev/null || die "govc not on PATH"
 command -v jq   >/dev/null || die "jq not on PATH"
-about=$(govc about 2>&1) || die "cannot reach ESXi host $GOVC_URL: $about"
-log "connected: $(echo "$about" | awk -F'  +' '/FullName/{print $2}')"
+
+# Connect to the ESXi host by DIRECT IP, never the proxied name. ESXI_URL in homelab.env is
+# esxi-t620.vcf.sampsoftware.net, which resolves to gw-vcf's Traefik (.5) — but this script SHUTS
+# gw-vcf DOWN, so using that name severs our own control path before we can power off the host
+# (the same gateway-inception trap that applies to the iDRAC). Try the host's direct mgmt IPs.
+ESXI_IPS="${ESXI_IP:-192.168.20.13 192.168.20.10}"
+GOVC_URL=""; export GOVC_URL
+for ip in $ESXI_IPS; do
+  export GOVC_URL="https://$ip"
+  about=$(govc about 2>&1) && { log "connected directly to ESXi at $ip: $(echo "$about" | awk -F'  +' '/FullName/{print $2}')"; break; }
+  GOVC_URL=""
+done
+[ -n "$GOVC_URL" ] || die "cannot reach ESXi host directly (tried: $ESXI_IPS)"
 HOST=$(govc find -type h 2>/dev/null | head -1)
 [ -n "$HOST" ] || die "could not resolve ESXi host object"
 log "host object: $HOST  (DRYRUN=$DRYRUN)"
